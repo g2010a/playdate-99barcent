@@ -11,12 +11,14 @@ local gfx <const> = pd.graphics
 local Config <const> = Config
 local cfg <const> = Config
 
-function GameState:init()
+function GameState:init(mode)
     debugPrint("initializing game state")
+    self.gameMode = mode or "classic"
+    self.points = cfg.startingPoints or 5  -- Default to 5 if not configured
     self.score = 0
     self.perfectHits = 0
+    self.totalStops = 0  -- Add counter for total stops
     self.rounds = 0
-    self.gameMode = "classic"
     self.roundEndTime = nil
     self.crankUsedInRound = false
     self.lastCrankPos = nil
@@ -24,28 +26,7 @@ function GameState:init()
     self.millisBetweenRounds = 3000
     self.showConfirmation = false
     self.confirmationSelection = 1  -- 1 = No, 2 = Yes
-    self:setupMenuOptions()
     self:startNewRound()
-end
-
-function GameState:setupMenuOptions()
-    local menu = pd.getSystemMenu()
-    
-    -- Add game mode menu
-    local modes = {"Classic", "Precision"}
-    menu:addOptionsMenuItem("Mode", modes, function(value)
-        if value == "Classic" then
-            self.gameMode = "classic"
-        else
-            self.gameMode = "precision"
-        end
-        self:startNewRound()
-    end)
-    
-    -- Add show percentage toggle
-    menu:addCheckmarkMenuItem("Show %", cfg.showCurrentPercent, function(value)
-        cfg.showCurrentPercent = value
-    end)
 end
 
 function GameState:startNewRound()
@@ -77,25 +58,41 @@ function GameState:checkScore()
     local difference = math.abs(self.currentPercent - self.targetPercent)
     
     debugPrint("Current:", self.currentPercent, "Target:", self.targetPercent, "Difference:", difference)
+    debugPrint("Current game mode:", self.gameMode)  -- Add this debug line
     
-    if difference == 0 then
-        debugPrint("Perfect hit!")
-        self.score = self.score + 10
-        self.perfectHits = self.perfectHits + 1
-    elseif difference <= 2 then
-        debugPrint("Great hit!")
-        self.score = self.score + 4
-    elseif difference <= 5 then
-        debugPrint("Good hit!")
-        self.score = self.score + 1
-    else
-        debugPrint("Miss!")
-        -- Game over if we're in instant death mode
-        local gameMode = cfg.gameModes[self.gameMode]
-        if gameMode and gameMode.instantDeath then
+    -- Increment total stops counter for all modes
+    self.totalStops = self.totalStops + 1
+    
+    if self.gameMode == "classic" then
+        -- Classic mode scoring
+        if difference == 0 then
+            debugPrint("Perfect hit!")
+            self.points = self.points + 2
+            self.perfectHits = self.perfectHits + 1
+        elseif difference <= (cfg.closeThreshold or 1) then
+            debugPrint("Close hit!")
+            self.points = self.points + 1
+        else
+            debugPrint("Miss!")
+            self.points = self.points - 1
+        end
+        
+        -- Check if player ran out of points
+        if self.points <= 0 then
             self:gameOver()
             return
         end
+    else
+        -- Endless mode scoring (percentage accuracy)
+        debugPrint("Using endless mode scoring")
+        if difference == 0 then
+            debugPrint("Perfect hit!")
+            self.perfectHits = self.perfectHits + 1
+        end
+        
+        -- Calculate percentage accuracy
+        self.score = math.floor((self.perfectHits / self.totalStops) * 10000) / 100
+        debugPrint("Accuracy:", self.score, "%")
     end
     
     -- Set timer for next round if crank is not docked
@@ -104,14 +101,25 @@ function GameState:checkScore()
     end
     
     debugPrint("Score is now:", self.score)
+    debugPrint("Points are now:", self.points)
 end
 
 function GameState:gameOver()
     -- Check and save high score
     debugPrint("game over")
+    debugPrint("Game over in mode:", self.gameMode)
+    
+    -- For classic mode, use points as the score
+    local finalScore
+    if self.gameMode == "classic" then
+        finalScore = self.points
+    else
+        finalScore = self.score  -- For endless, this is the percentage accuracy
+    end
+    
     local isNewHighScore = Scores.checkAndSaveHighScore(
         self.gameMode,
-        self.score,
+        finalScore,
         self.perfectHits,
         self.rounds
     )
@@ -119,6 +127,14 @@ function GameState:gameOver()
     -- Show game over screen
     self.isGameOver = true
     self.isNewHighScore = isNewHighScore
+end
+
+function GameState:showModeChangeConfirmation()
+    -- Set up confirmation dialog for mode change
+    self.showConfirmation = true
+    self.confirmationSelection = 1  -- Default to No
+    self.confirmationType = "modeChange"
+    self.confirmationMessage = "Change game mode? Current progress will be lost."
 end
 
 function GameState:update()
@@ -131,18 +147,58 @@ function GameState:update()
             self.confirmationSelection = self.confirmationSelection == 1 and 2 or 1
         elseif pd.buttonJustPressed(pd.kButtonA) then
             if self.confirmationSelection == 2 then  -- Yes selected
-                switchState(MenuState())
-                return
-            else  -- No selected
-                self.showConfirmation = false
+                if self.confirmationType == "modeChange" and MenuState.pendingModeChange then
+                    debugPrint("Changing mode to:", MenuState.pendingModeChange)
+                    
+                    -- Save high score for current mode before changing
+                    local finalScore
+                    if self.gameMode == "classic" then
+                        finalScore = self.points
+                    else
+                        finalScore = self.score
+                    end
+                    
+                    Scores.checkAndSaveHighScore(
+                        self.gameMode,
+                        finalScore,
+                        self.perfectHits,
+                        self.rounds
+                    )
+                    
+                    -- Update the selected mode
+                    MenuState.selectedMode = MenuState.pendingModeChange
+                    
+                    -- Clear pending mode change
+                    MenuState.pendingModeChange = nil
+                    
+                    -- Return to menu with new mode selected
+                    switchState(MenuState())
+                    return
+                else
+                    -- Regular exit confirmation
+                    switchState(MenuState())
+                    return
+                end
             end
+            -- Hide confirmation dialog
+            self.showConfirmation = false
         elseif pd.buttonJustPressed(pd.kButtonB) then
             -- Cancel confirmation
             self.showConfirmation = false
+            -- Reset menu selection if this was a mode change
+            if self.confirmationType == "modeChange" then
+                local menu = pd.getSystemMenu()
+                local currentModeIndex
+                if self.gameMode == "classic" then
+                    currentModeIndex = 1
+                else
+                    currentModeIndex = 2
+                end
+                menu:setOptionsMenuItem("Mode", currentModeIndex)
+                MenuState.pendingModeChange = nil
+            end
         end
         
-        -- Skip the rest of the update when showing confirmation
-        self:drawGame()
         self:drawConfirmationOverlay()
         return
     end
@@ -274,7 +330,13 @@ end
 
 function GameState:drawGameOver()
     gfx.drawTextAligned("Game Over!", 200, 80, kTextAlignment.center)
-    gfx.drawTextAligned("Score: " .. self.score, 200, 110, kTextAlignment.right)
+    
+    if self.gameMode == "classic" then
+        gfx.drawTextAligned("Final Points: " .. self.points, 200, 110, kTextAlignment.center)
+    else
+        gfx.drawTextAligned("Accuracy: " .. self.score .. "%", 200, 110, kTextAlignment.center)
+    end
+    
     gfx.drawTextAligned("Perfect: " .. self.perfectHits, 200, 130, kTextAlignment.center)
     gfx.drawTextAligned("Rounds: " .. self.rounds, 200, 150, kTextAlignment.center)
     
@@ -296,10 +358,20 @@ function GameState:drawUI()
     if cfg.showCurrentPercent then
         gfx.drawText("Current: " .. math.floor(self.currentPercent) .. "%", 1, 1)
     end
+    
+    -- Draw target percentage
     gfx.setFont(gfx.font.new("fonts/straight-120-all"))
     gfx.drawTextAligned(self.targetPercent .. "%", 200, 45, kTextAlignment.center)
     gfx.setFont(gfx.font.new("fonts/topaz-11"))
-    gfx.drawTextAligned("Score: " .. self.score, 399, 1, kTextAlignment.right)
+    
+    -- Draw score or points based on game mode
+    if self.gameMode == "classic" then
+        gfx.drawTextAligned("Points: " .. self.points, 399, 1, kTextAlignment.right)
+        gfx.drawTextAligned("Rounds: " .. self.rounds, 399, 15, kTextAlignment.right)
+    else
+        gfx.drawTextAligned("Accuracy: " .. self.score .. "%", 399, 1, kTextAlignment.right)
+        gfx.drawTextAligned("Perfect: " .. self.perfectHits .. "/" .. self.totalStops, 399, 15, kTextAlignment.right)
+    end
     
     -- Draw the progress bar
     gfx.drawRoundRect(barX, barY, barWidth, barHeight, barRadius)
@@ -361,7 +433,15 @@ function GameState:drawConfirmationOverlay()
     gfx.setColor(gfx.kColorBlack)
     gfx.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 4)
     
-    gfx.drawTextAligned("You a chicken, McFly?", 200, boxY + 20, kTextAlignment.center)
+    -- Show appropriate message based on confirmation type
+    local message
+    if self.confirmationType == "modeChange" then
+        message = self.confirmationMessage
+    else
+        message = "You a chicken, McFly?"
+    end
+    
+    gfx.drawTextAligned(message, 200, boxY + 20, kTextAlignment.center)
     
     -- Draw options
     local noX = boxX + 60
@@ -390,6 +470,6 @@ end
 
 function GameState:exit()
     debugPrint("exiting game state")
-    -- Clean up menu items when exiting
-    pd.getSystemMenu():removeAllMenuItems()
-end 
+    -- Don't remove menu items here, let MenuState handle it
+    -- pd.getSystemMenu():removeAllMenuItems()
+end

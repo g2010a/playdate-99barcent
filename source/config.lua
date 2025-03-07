@@ -1,6 +1,8 @@
 Config = {
     baseFillSpeed = 1,
     showCurrentPercent = false,
+    startingPoints = 5,
+    closeThreshold = 1,
     
     -- Future game modes can be added here
     gameModes = {
@@ -10,9 +12,11 @@ Config = {
             usesCrank = false,
             instantDeath = false
         },
-        precision = {
-            name = "Precision",
-            instantDeath = true
+        endless = {
+            name = "Endless",
+            fillSpeed = 0.5,
+            usesCrank = true,
+            instantDeath = false
         }
         -- Add more modes here
     }
