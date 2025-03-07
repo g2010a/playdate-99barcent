@@ -22,6 +22,8 @@ function GameState:init()
     self.lastCrankPos = nil
     self.isWaitingForCrank = false
     self.millisBetweenRounds = 3000
+    self.showConfirmation = false
+    self.confirmationSelection = 1  -- 1 = No, 2 = Yes
     self:setupMenuOptions()
     self:startNewRound()
 end
@@ -121,6 +123,36 @@ end
 
 function GameState:update()
     gfx.clear()
+    
+    -- Handle confirmation overlay if active
+    if self.showConfirmation then
+        if pd.buttonJustPressed(pd.kButtonLeft) or pd.buttonJustPressed(pd.kButtonRight) then
+            -- Toggle between Yes and No
+            self.confirmationSelection = self.confirmationSelection == 1 and 2 or 1
+        elseif pd.buttonJustPressed(pd.kButtonA) then
+            if self.confirmationSelection == 2 then  -- Yes selected
+                switchState(MenuState())
+                return
+            else  -- No selected
+                self.showConfirmation = false
+            end
+        elseif pd.buttonJustPressed(pd.kButtonB) then
+            -- Cancel confirmation
+            self.showConfirmation = false
+        end
+        
+        -- Skip the rest of the update when showing confirmation
+        self:drawGame()
+        self:drawConfirmationOverlay()
+        return
+    end
+    
+    -- Check if B button is pressed to show confirmation
+    if pd.buttonJustPressed(pd.kButtonB) then
+        self.showConfirmation = true
+        self.confirmationSelection = 1  -- Default to "No"
+        return
+    end
     
     -- Check if it's time to start filling after delay
     if self.millisBeforeFilling and pd.getCurrentTimeMilliseconds() >= self.millisBeforeFilling then
@@ -233,6 +265,13 @@ function GameState:update()
     end
 end
 
+function GameState:drawGame()
+    -- Move all drawing code here from update
+    -- ... existing drawing code ...
+    self:drawUI()
+    -- ... existing drawing code ...
+end
+
 function GameState:drawGameOver()
     gfx.drawTextAligned("Game Over!", 200, 80, kTextAlignment.center)
     gfx.drawTextAligned("Score: " .. self.score, 200, 110, kTextAlignment.right)
@@ -303,6 +342,50 @@ function GameState:drawUI()
     if not pd.isCrankDocked() and self.isBarFilling then
         gfx.drawTextAligned("Turn crank to begin", 200, 175, kTextAlignment.center)
     end
+end
+
+function GameState:drawConfirmationOverlay()
+    -- Dim the background
+    gfx.setColor(gfx.kColorBlack)
+    gfx.setDitherPattern(0.5)
+    gfx.fillRect(0, 0, 400, 240)
+    
+    -- Draw confirmation box
+    gfx.setColor(gfx.kColorWhite)
+    local boxWidth = 240
+    local boxHeight = 100
+    local boxX = 200 - boxWidth/2
+    local boxY = 120 - boxHeight/2
+    gfx.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 4)
+    
+    gfx.setColor(gfx.kColorBlack)
+    gfx.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 4)
+    
+    gfx.drawTextAligned("You a chicken, McFly?", 200, boxY + 20, kTextAlignment.center)
+    
+    -- Draw options
+    local noX = boxX + 60
+    local yesX = boxX + boxWidth - 60
+    local optionsY = boxY + boxHeight - 40
+    
+    -- Highlight selected option
+    if self.confirmationSelection == 1 then
+        -- No is selected
+        gfx.fillRoundRect(noX - 30, optionsY - 10, 60, 30, 3)
+        gfx.setImageDrawMode(gfx.kDrawModeInverted)
+        gfx.drawTextAligned("No", noX, optionsY, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
+        gfx.drawTextAligned("Yes", yesX, optionsY, kTextAlignment.center)
+    else
+        -- Yes is selected
+        gfx.fillRoundRect(yesX - 30, optionsY - 10, 60, 30, 3)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
+        gfx.drawTextAligned("No", noX, optionsY, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeInverted)
+        gfx.drawTextAligned("Yes", yesX, optionsY, kTextAlignment.center)
+    end
+    
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 function GameState:exit()
