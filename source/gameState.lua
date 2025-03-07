@@ -96,9 +96,9 @@ function GameState:checkScore()
         end
     end
     
-    -- Set timer for auto-progression if crank is undocked
+    -- Set timer for next round if crank is not docked
     if not pd.isCrankDocked() then
-        self.roundEndTime = pd.getCurrentTimeMilliseconds() + self.millisBetweenRounds
+        self.roundEndTime = pd.getCurrentTimeMilliseconds() + 3000  -- 3 seconds
     end
     
     debugPrint("Score is now:", self.score)
@@ -158,7 +158,7 @@ function GameState:update()
             return
         elseif self.isBarFilling and not self.isWaitingForCrank then
             self:checkScore()
-        else
+        elseif isCrankDocked then  -- Only start new round with button if crank is docked
             self:startNewRound()
         end
     end
