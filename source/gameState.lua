@@ -254,7 +254,7 @@ function GameState:drawUI()
     
     -- Draw current percentage only if enabled
     if cfg.showCurrentPercent then
-        gfx.drawText("Current: " .. math.floor(self.currentPercent) .. "%", 20, 80)
+        gfx.drawText("Current: " .. math.floor(self.currentPercent) .. "%", 1, 1)
     end
     gfx.setFont(gfx.font.new("fonts/straight-120-all"))
     gfx.drawTextAligned(self.targetPercent .. "%", 200, 45, kTextAlignment.center)
