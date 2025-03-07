@@ -156,7 +156,8 @@ function GameState:update()
         if self.isGameOver then
             switchState(MenuState())
             return
-        elseif self.isBarFilling and not self.isWaitingForCrank then
+        elseif self.isBarFilling and isCrankDocked and not self.isWaitingForCrank then
+            -- Only stop the bar with button A if in button mode (crank docked)
             self:checkScore()
         elseif isCrankDocked then  -- Only start new round with button if crank is docked
             self:startNewRound()
@@ -292,6 +293,9 @@ function GameState:drawUI()
             gfx.drawTextAligned("Turn crank clockwise to start", 200, 200, kTextAlignment.center)
         elseif pd.isCrankDocked() then
             gfx.drawTextAligned("Press A to stop", 200, 200, kTextAlignment.center)
+        else
+            -- In crank mode, don't show "Press A to stop"
+            gfx.drawTextAligned("Return crank to stop", 200, 200, kTextAlignment.center)
         end
     end
     
