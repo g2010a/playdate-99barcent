@@ -28,7 +28,7 @@ function MenuState:update()
     
     gfx.pushContext()
     gfx.setFont(self.titleFont)
-    gfx.drawTextAligned("99%", 200, 60, kTextAlignment.center)
+    gfx.drawTextAligned("99%", 200, 45, kTextAlignment.center)
     gfx.popContext()
     
     gfx.drawTextAligned("Stop the bar at the right percentage", 200, 140, kTextAlignment.center)
