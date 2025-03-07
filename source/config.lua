@@ -1,6 +1,6 @@
 Config = {
     baseFillSpeed = 1,
-    showCurrentPercent = true,
+    showCurrentPercent = false,
     
     -- Future game modes can be added here
     gameModes = {

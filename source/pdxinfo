@@ -1,6 +1,6 @@
-name=99 Barcent
+name=99percent
 author=netplaido
 description=You are given a percent. Stop the percent bar at the right moment and win!
-bundleID=com.netplaido.99barcent
+bundleID=com.netplaido.99percent
 version=0.0.1
 buildNumber=1

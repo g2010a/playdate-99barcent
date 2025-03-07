@@ -4,11 +4,12 @@ import "scores"
 
 class('MenuState').extends()
 
-local gfx <const> = playdate.graphics
+local pd <const> = playdate
+local gfx <const> = pd.graphics
 
 function MenuState:init()
     debugPrint("initializing menu state")
-    self.titleFont = gfx.font.new("fonts/topaz-11")
+    self.titleFont = gfx.font.new("fonts/straight-120-all")
     self.highScores = Scores.getHighScore("classic")
 end
 
@@ -20,17 +21,17 @@ end
 function MenuState:update()
     gfx.clear()
     
-    if playdate.buttonJustPressed(playdate.kButtonA) then
+    if pd.buttonJustPressed(pd.kButtonA) then
         switchState(GameState())
         return
     end
     
     gfx.pushContext()
     gfx.setFont(self.titleFont)
-    gfx.drawTextAligned("=== B A R C E N T ===", 200, 80, kTextAlignment.center)
+    gfx.drawTextAligned("99%", 200, 60, kTextAlignment.center)
     gfx.popContext()
     
-    gfx.drawTextAligned("Match the percentage", 200, 140, kTextAlignment.center)
+    gfx.drawTextAligned("Stop the bar at the right percentage", 200, 140, kTextAlignment.center)
     
     -- Display high scores
     gfx.drawTextAligned("High Score: " .. self.highScores.points, 200, 160, kTextAlignment.center)
