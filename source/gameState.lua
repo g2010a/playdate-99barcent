@@ -241,14 +241,24 @@ function GameState:update()
     
     -- Handle A button press
     if pd.buttonJustPressed(pd.kButtonA) then
+        -- Don't allow starting a new round during the millisBeforeFilling period
+        if self.millisBeforeFilling then
+            return
+        end
+        
         if self.isGameOver then
             switchState(MenuState())
             return
-        elseif self.isBarFilling and isCrankDocked and not self.isWaitingForCrank then
-            -- Only stop the bar with button A if in button mode (crank docked)
-            self:checkScore()
-        elseif isCrankDocked then  -- Only start new round with button if crank is docked
+        elseif not self.isBarFilling then
+            -- Start a new round if we're not already filling
+            if not pd.isCrankDocked() and self.roundEndTime and pd.getCurrentTimeMilliseconds() < self.roundEndTime then
+                -- Don't start a new round if we're still in the countdown period
+                return
+            end
             self:startNewRound()
+        elseif pd.isCrankDocked() then
+            -- Stop the bar if A is pressed and crank is docked
+            self:checkScore()
         end
     end
     
